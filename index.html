@@ -373,7 +373,9 @@ inputEl.addEventListener('input', () => {
 
 // ── REGLAS DE COMPRESIÓN ──
 function compress(text) {
-  let r = text;
+  // Si el texto está en MAYÚSCULAS, normalizarlo primero
+  const isCaps = text === text.toUpperCase() && /[A-ZÁÉÍÓÚÜÑ]{4,}/.test(text);
+  let r = isCaps ? text.toLowerCase() : text;
 
   // 0. Saludos
   const saludos = [
