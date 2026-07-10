@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PromptFlow — Context Optimizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+  background:#0a0416;
+  min-height:100vh;
+  font-family:'Inter',sans-serif;
+  color:#fff;
+  overflow-x:hidden;
+  position:relative;
+}
+
+body::before{
+  content:'';position:fixed;top:-200px;right:-200px;
+  width:700px;height:700px;
+  background:radial-gradient(circle,#7c3aed18 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;bottom:-200px;left:-200px;
+  width:600px;height:600px;
+  background:radial-gradient(circle,#ec489914 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+
+.app{max-width:1000px;margin:0 auto;padding:40px 24px 60px;position:relative;z-index:1;}
+
+/* ── HEADER ── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:44px;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-icon{
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,#7c3aed,#ec4899);
+  display:grid;place-items:center;font-size:20px;
+  box-shadow:0 0 24px #7c3aed55;
+  flex-shrink:0;
+}
+.brand-name{font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:1;}
+.brand-sub{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:#a78bfa;letter-spacing:2px;margin-top:3px;
+}
+.header-badge{
+  background:#7c3aed18;border:1px solid #7c3aed44;
+  color:#a78bfa;font-size:11px;font-weight:600;
+  padding:6px 14px;border-radius:20px;
+  font-family:'JetBrains Mono',monospace;letter-spacing:1px;
+}
+
+/* ── HERO ── */
+.hero{text-align:center;margin-bottom:36px;}
+.hero h1{
+  font-size:34px;font-weight:900;letter-spacing:-0.03em;line-height:1.2;
+  background:linear-gradient(135deg,#fff 30%,#c4b5fd 65%,#f9a8d4 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:12px;
+}
+.hero p{color:#6b7280;font-size:14px;line-height:1.7;max-width:500px;margin:0 auto;}
+
+/* ── PANEL PRINCIPAL ── */
+.panel{
+  background:#ffffff05;
+  border:1px solid #ffffff0e;
+  border-radius:22px;
+  padding:30px;
+  backdrop-filter:blur(20px);
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 8px 60px #7c3aed18;
+}
+.panel::before{
+  content:'';position:absolute;top:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,#7c3aed99,#ec489999,transparent);
+}
+
+/* ── COLUMNAS ── */
+.columns{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:22px;}
+
+.col-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:700;letter-spacing:2px;
+  margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+textarea{
+  width:100%;min-height:190px;
+  background:#ffffff07;
+  border:1px solid #ffffff12;
+  border-radius:14px;
+  padding:16px;
+  font-size:13.5px;font-family:'Inter',sans-serif;
+  color:#d1d5db;line-height:1.75;
+  resize:vertical;outline:none;
+  transition:border-color .2s, box-shadow .2s;
+}
+textarea:focus{
+  border-color:#7c3aed66;
+  box-shadow:0 0 0 3px #7c3aed18;
+}
+textarea::placeholder{color:#374151;}
+
+.output-box{
+  width:100%;min-height:190px;
+  background:#7c3aed0c;
+  border:1px solid #7c3aed33;
+  border-radius:14px;
+  padding:16px;
+  font-size:13.5px;font-family:'Inter',sans-serif;
+  color:#e9d5ff;line-height:1.75;
+  white-space:pre-wrap;word-break:break-word;
+  transition:all .3s;
+}
+.output-box.empty{color:#4b5563;font-style:italic;}
+
+/* ── STATS ── */
+.stats-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.stat{
+  background:#ffffff06;border:1px solid #ffffff0e;
+  border-radius:10px;padding:8px 14px;min-width:80px;
+}
+.stat-val{
+  font-family:'JetBrains Mono',monospace;
+  font-size:19px;font-weight:700;color:#9ca3af;line-height:1;
+}
+.stat-lbl{font-size:9px;color:#4b5563;letter-spacing:1.5px;margin-top:3px;font-family:'JetBrains Mono',monospace;}
+.stat.purple .stat-val{color:#a78bfa;}
+.stat.purple{border-color:#7c3aed2a;background:#7c3aed0a;}
+.stat.green .stat-val{color:#34d399;}
+.stat.green{border-color:#34d39933;background:#34d39908;}
+
+/* ── DIVISOR ── */
+.divider{
+  display:flex;align-items:center;gap:12px;margin:4px 0 18px;
+}
+.divider-line{flex:1;height:1px;background:#ffffff08;}
+.divider-text{color:#4b5563;font-size:11px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+
+/* ── ACCIONES ── */
+.actions{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,#7c3aed,#ec4899);
+  border:none;border-radius:12px;
+  padding:13px 30px;
+  color:#fff;font-size:14px;font-weight:700;letter-spacing:0.01em;
+  cursor:pointer;display:flex;align-items:center;gap:9px;
+  box-shadow:0 4px 24px #7c3aed55;
+  font-family:'Inter',sans-serif;
+  transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.btn-primary::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,#8b47ff,#f472b6);
+  opacity:0;transition:opacity .2s;
+}
+.btn-primary:hover::after{opacity:1;}
+.btn-primary:hover{box-shadow:0 6px 32px #7c3aed77;transform:translateY(-1px);}
+.btn-primary:active{transform:translateY(0);}
+.btn-primary span{position:relative;z-index:1;}
+
+.right-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+
+.savings-badge{
+  background:linear-gradient(135deg,#34d39915,#10b98115);
+  border:1px solid #34d39944;
+  border-radius:20px;padding:7px 16px;
+  color:#34d399;font-size:12px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;
+  display:none;
+}
+.savings-badge.visible{display:block;}
+
+.btn-copy{
+  background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;
+  padding:9px 18px;color:#a78bfa;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:1px;
+  display:none;align-items:center;gap:7px;
+  transition:all .2s;
+}
+.btn-copy:hover{background:#7c3aed18;border-color:#7c3aed55;}
+.btn-copy.visible{display:flex;}
+.btn-copy.copied{color:#34d399;border-color:#34d39944;}
+
+/* ── REGLAS ── */
+.rules-section{margin-top:22px;padding-top:18px;border-top:1px solid #ffffff08;}
+.rules-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:#4b5563;letter-spacing:2px;margin-bottom:10px;
+}
+.rules{display:flex;gap:8px;flex-wrap:wrap;}
+.rule{
+  background:#ffffff05;border:1px solid #ffffff0e;
+  border-radius:7px;padding:4px 11px;
+  font-size:10px;color:#4b5563;
+  font-family:'JetBrains Mono',monospace;
+  transition:all .2s;cursor:default;
+}
+.rule.on{
+  background:#7c3aed18;border-color:#7c3aed44;
+  color:#a78bfa;
+}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;margin-top:36px;
+  padding-top:24px;border-top:1px solid #ffffff07;
+}
+.footer span{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:#374151;letter-spacing:0.5px;
+}
+.footer strong{
+  background:linear-gradient(135deg,#a78bfa,#f9a8d4);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;font-weight:700;
+}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:28px;right:28px;z-index:999;
+  background:#1a0a35;border:1px solid #7c3aed55;border-radius:12px;
+  padding:12px 20px;font-size:13px;color:#c4b5fd;
+  box-shadow:0 8px 32px #7c3aed33;
+  transform:translateY(80px);opacity:0;
+  transition:all .3s cubic-bezier(.175,.885,.32,1.275);
+  pointer-events:none;
+  font-family:'JetBrains Mono',monospace;
+}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@keyframes pulse-glow{
+  0%,100%{box-shadow:0 0 24px #7c3aed55;}
+  50%{box-shadow:0 0 36px #7c3aed88;}
+}
+.btn-primary{animation:pulse-glow 3s ease-in-out infinite;}
+.btn-primary:hover{animation:none;}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-name">PromptFlow</div>
+        <div class="brand-sub">CONTEXT OPTIMIZER</div>
+      </div>
+    </div>
+    <div class="header-badge">v1.0 · SIN CONEXIÓN</div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Optimizá tus prompts,<br/>ahorrá tokens reales</h1>
+    <p>Eliminá palabras innecesarias y corregí errores de escritura automáticamente antes de enviarle tu prompt a Claude.</p>
+  </div>
+
+  <!-- PANEL -->
+  <div class="panel">
+
+    <div class="columns">
+
+      <!-- IZQUIERDA: INPUT -->
+      <div>
+        <div class="col-label">
+          <div class="dot" style="background:#4b5563;"></div>
+          <span style="color:#6b7280;">PROMPT ORIGINAL</span>
+        </div>
+        <textarea id="input" placeholder="Pegá tu texto o instrucción aquí...
+
+Ejemplo: 'Me gustaría que por favor pudieras ayudarme a crear una funcion que permita al usuario iniciar sesion con su correo...'"></textarea>
+        <div class="stats-row">
+          <div class="stat">
+            <div class="stat-val" id="in-words">0</div>
+            <div class="stat-lbl">PALABRAS</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val" id="in-chars">0</div>
+            <div class="stat-lbl">CARACTERES</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DERECHA: OUTPUT -->
+      <div>
+        <div class="col-label">
+          <div class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa88;"></div>
+          <span style="color:#a78bfa;">PROMPT OPTIMIZADO</span>
+        </div>
+        <div class="output-box empty" id="output">El resultado aparecerá aquí...</div>
+        <div class="stats-row">
+          <div class="stat purple">
+            <div class="stat-val" id="out-words">0</div>
+            <div class="stat-lbl">PALABRAS</div>
+          </div>
+          <div class="stat purple">
+            <div class="stat-val" id="out-chars">0</div>
+            <div class="stat-lbl">CARACTERES</div>
+          </div>
+          <div class="stat green" id="stat-savings" style="display:none;">
+            <div class="stat-val" id="out-pct">0%</div>
+            <div class="stat-lbl">AHORRO</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCIONES -->
+    <div class="actions">
+      <button class="btn-primary" onclick="runCompress()">
+        <span>⚡</span><span>Comprimir y Corregir</span>
+      </button>
+      <div class="right-actions">
+        <div class="savings-badge" id="savings-badge"></div>
+        <button class="btn-copy" id="btn-copy" onclick="copyOutput()">⎘ COPIAR</button>
+      </div>
+    </div>
+
+    <!-- REGLAS ACTIVAS -->
+    <div class="rules-section">
+      <div class="rules-label">REGLAS APLICADAS</div>
+      <div class="rules">
+        <div class="rule on">cortesías</div>
+        <div class="rule on">filler words</div>
+        <div class="rule on">redundancias</div>
+        <div class="rule on">ortografía</div>
+        <div class="rule on">espacios extra</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>Desarrollado por · <strong>Allan Martinez Software Developers</strong></span>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONTADORES EN TIEMPO REAL ──
+const inputEl  = document.getElementById('input');
+const outputEl = document.getElementById('output');
+
+function countWords(str){ return str.trim() === '' ? 0 : str.trim().split(/\s+/).length; }
+
+inputEl.addEventListener('input', () => {
+  const v = inputEl.value;
+  document.getElementById('in-words').textContent = countWords(v);
+  document.getElementById('in-chars').textContent = v.length;
+});
+
+// ── REGLAS DE COMPRESIÓN ──
+function compress(text) {
+  let r = text;
+
+  // 0. Saludos
+  const saludos = [
+    [/^\s*hola[,!]?\s*/gi, ''],
+    [/^\s*buenos d[ií]as[,!]?\s*/gi, ''],
+    [/^\s*buenas tardes[,!]?\s*/gi, ''],
+    [/^\s*buenas noches[,!]?\s*/gi, ''],
+    [/^\s*buen d[ií]a[,!]?\s*/gi, ''],
+    [/^\s*saludos[,!]?\s*/gi, ''],
+  ];
+
+  // 1. Frases de cortesía → reemplazar por instrucción directa (no eliminar)
+  // Reemplazar por "Quiero que" mantiene la gramática coherente sin AI
+  const filler = [
+    [/\bme gustar[ií]a que\b\s*/gi, 'Quiero que '],
+    [/\bme gustar[ií]a\b\s*/gi, 'Quiero '],
+    [/\bquisiera que\b\s*/gi, 'Quiero que '],
+    [/\bquisiera\b\s*/gi, 'Quiero '],
+    [/\bser[ií]a posible que\b\s*/gi, 'Quiero que '],
+    [/\bte agradecer[ií]a que\b\s*/gi, 'Quiero que '],
+    [/\bte agradecer[ií]a\b\s*/gi, 'Quiero '],
+    [/\bnecesito que\b\s*/gi, 'Quiero que '],
+    [/\bpodr[ií]as\b\s*/gi, 'Quiero que '],
+    [/\bme podr[ií]as\b\s*/gi, 'Quiero que me '],
+    [/\bpor favor,?\s*/gi, ''],
+    [/\bsi no es mucha molestia,?\s*/gi, ''],
+    [/\bayudarme a\b\s*/gi, ''],
+    [/\bme ayudes a\b\s*/gi, ''],
+    [/\bsi puedes,?\s*/gi, ''],
+    [/\bsi es posible,?\s*/gi, ''],
+  ];
+
+  // 2. Construcciones verbosas → compactas
+  const verbose = [
+    [/\ben el caso de que\b/gi, 'si'],
+    [/\bcon el objetivo de\b/gi, 'para'],
+    [/\bcon la finalidad de\b/gi, 'para'],
+    [/\bcon el fin de\b/gi, 'para'],
+    [/\ba pesar de que\b/gi, 'aunque'],
+    [/\bdebido a que\b/gi, 'porque'],
+    [/\bque me permita\b/gi, 'que'],
+    [/\bque permita\b/gi, 'que'],
+    [/\ben lo que respecta a\b/gi, 'sobre'],
+    [/\ben cuanto a\b/gi, 'sobre'],
+  ];
+
+  // 3. Palabras redundantes
+  const redundant = [
+    [/\bbásicamente\b\s*/gi, ''],
+    [/\bliteralmente\b\s*/gi, ''],
+    [/\bsimplemente\b\s*/gi, ''],
+    [/\brealmente\b\s*/gi, ''],
+    [/\bde hecho\b\s*/gi, ''],
+    [/\ben realidad\b\s*/gi, ''],
+    [/\ben definitiva\b\s*/gi, ''],
+    [/\bactualmente\b\s*/gi, ''],
+    [/\bprácticamente\b\s*/gi, ''],
+  ];
+
+  // 4. Ortografía — tildes comunes faltantes
+  const ortografia = [
+    [/\belectronico\b/gi, 'electrónico'],
+    [/\btelefono\b/gi, 'teléfono'],
+    [/\bcodigo\b/gi, 'código'],
+    [/\btambien\b/gi, 'también'],
+    [/\bfuncion\b/gi, 'función'],
+    [/\baplicacion\b/gi, 'aplicación'],
+    [/\bpagina\b/gi, 'página'],
+    [/\binformacion\b/gi, 'información'],
+    [/\bautenticacion\b/gi, 'autenticación'],
+    [/\bconfiguracion\b/gi, 'configuración'],
+    [/\bnotificacion\b/gi, 'notificación'],
+    [/\bdireccion\b/gi, 'dirección'],
+    [/\bconexion\b/gi, 'conexión'],
+    [/\bvalidacion\b/gi, 'validación'],
+    [/\bcreacion\b/gi, 'creación'],
+    [/\bmodificacion\b/gi, 'modificación'],
+    [/\bboton\b/gi, 'botón'],
+    [/\bsesion\b/gi, 'sesión'],
+    [/\bopcion\b/gi, 'opción'],
+    [/\baccion\b/gi, 'acción'],
+    [/\bsolucion\b/gi, 'solución'],
+    [/\brelacion\b/gi, 'relación'],
+    [/\bpresentacion\b/gi, 'presentación'],
+    [/\bcontrasena\b/gi, 'contraseña'],
+    [/\bcontrasenia\b/gi, 'contraseña'],
+    [/\bdiseno\b/gi, 'diseño'],
+    [/\bespanol\b/gi, 'español'],
+    [/\bpermiso\b/gi, 'permiso'],
+    [/\busuario\b/gi, 'usuario'],
+    [/\bregistro\b/gi, 'registro'],
+    [/\barchivo\b/gi, 'archivo'],
+    [/\bcategoria\b/gi, 'categoría'],
+    [/\bprioridad\b/gi, 'prioridad'],
+    [/\bejemplo\b/gi, 'ejemplo'],
+    [/\bmetodo\b/gi, 'método'],
+    [/\bmodulo\b/gi, 'módulo'],
+    [/\bparametro\b/gi, 'parámetro'],
+    [/\bportafolio\b/gi, 'portafolio'],
+    [/\bcaracter\b/gi, 'carácter'],
+    [/\bnumero\b/gi, 'número'],
+    [/\btitulo\b/gi, 'título'],
+    [/\bgenero\b/gi, 'género'],
+    [/\bfacil\b/gi, 'fácil'],
+    [/\bdificil\b/gi, 'difícil'],
+    [/\butil\b/gi, 'útil'],
+    [/\bavatar\b/gi, 'avatar'],
+    [/\bdatos\b/gi, 'datos'],
+  ];
+
+  // Aplicar todo
+  [...saludos, ...filler, ...verbose, ...redundant, ...ortografia].forEach(([pat, rep]) => {
+    r = r.replace(pat, rep);
+  });
+
+  // Limpiar espacios dobles, puntuación suelta
+  r = r.replace(/[ \t]+/g, ' ')
+       .replace(/\n{3,}/g, '\n\n')
+       .replace(/\s+([.,;:!?])/g, '$1')
+       .replace(/([.!?])\s{2,}/g, '$1 ')
+       .trim();
+
+  // Capitalizar primera letra
+  if (r.length > 0) r = r[0].toUpperCase() + r.slice(1);
+
+  return r;
+}
+
+// ── EJECUTAR COMPRESIÓN ──
+function runCompress() {
+  const input = inputEl.value.trim();
+  if (!input) { showToast('Escribí algo primero ✦'); return; }
+
+  const result = compress(input);
+  outputEl.textContent = result;
+  outputEl.classList.remove('empty');
+
+  // Stats
+  const inW  = countWords(input),   inC  = input.length;
+  const outW = countWords(result),  outC = result.length;
+  document.getElementById('out-words').textContent = outW;
+  document.getElementById('out-chars').textContent = outC;
+
+  const pct = inC > 0 ? Math.round((1 - outC / inC) * 100) : 0;
+  document.getElementById('out-pct').textContent = pct + '%';
+
+  const savingsEl  = document.getElementById('stat-savings');
+  const badgeEl    = document.getElementById('savings-badge');
+  const copyEl     = document.getElementById('btn-copy');
+
+  if (pct > 0) {
+    savingsEl.style.display = 'block';
+    badgeEl.textContent = `✓ ${inW - outW} palabras eliminadas`;
+    badgeEl.classList.add('visible');
+  } else {
+    savingsEl.style.display = 'none';
+    badgeEl.classList.remove('visible');
+  }
+
+  copyEl.classList.add('visible');
+  copyEl.classList.remove('copied');
+  copyEl.textContent = '⎘ COPIAR';
+
+  showToast(`⚡ Comprimido — ahorro del ${pct}%`);
+}
+
+// ── COPIAR ──
+function copyOutput() {
+  const text = outputEl.textContent;
+  if (!text || outputEl.classList.contains('empty')) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ COPIADO';
+    btn.classList.add('copied');
+    showToast('¡Copiado al portapapeles!');
+    setTimeout(() => { btn.textContent = '⎘ COPIAR'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Enter para comprimir (Ctrl+Enter)
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCompress();
+});
+</script>
+</body>
+</html>
