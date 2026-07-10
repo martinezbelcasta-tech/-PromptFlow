@@ -420,6 +420,33 @@ function compress(text) {
     [/\bque permita\b/gi, 'que'],
     [/\ben lo que respecta a\b/gi, 'sobre'],
     [/\ben cuanto a\b/gi, 'sobre'],
+    // Tiempo
+    [/\bdel d[ií]a de hoy\b/gi, 'hoy'],
+    [/\bel d[ií]a de hoy\b/gi, 'hoy'],
+    [/\blo m[aá]s pronto posible\b/gi, 'urgente'],
+    [/\ba la brevedad posible\b/gi, 'urgente'],
+    [/\bcuanto antes\b/gi, 'urgente'],
+    [/\ben este momento\b/gi, 'ahora'],
+    [/\bactualmente\b/gi, 'ahora'],
+    [/\ben este instante\b/gi, 'ahora'],
+  ];
+
+  // 2b. Frases referenciales — no aportan info al modelo
+  const referencial = [
+    [/\bque te mand[oéó]\b\s*/gi, ''],
+    [/\bque te env[ií][oóé]\b\s*/gi, ''],
+    [/\bque te pas[eéó]\b\s*/gi, ''],
+    [/\bque te compart[ií]\b\s*/gi, ''],
+    [/\bque te dej[eé]\b\s*/gi, ''],
+    [/\bque adjunt[oó]\b\s*/gi, ''],
+    [/\bque te estoy mandando\b\s*/gi, ''],
+    [/\bque te estoy enviando\b\s*/gi, ''],
+  ];
+
+  // 2c. Multi-tarea: "y [verbo imperativo]" → ". [Verbo]"
+  const multiTask = [
+    [/\s+y\s+(pon|agrega|escribe|coloca|añade|cambia|modifica|quita|elimina|actualiza|revisa|corrige|incluye|sube|baja|mueve|copia|pega|abre|cierra|guarda|crea|borra|mejora|reduce|aumenta)\b/gi,
+      (_, v) => `. ${v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()}`],
   ];
 
   // 3. Palabras redundantes
@@ -487,7 +514,7 @@ function compress(text) {
   ];
 
   // Aplicar todo
-  [...saludos, ...filler, ...verbose, ...redundant, ...ortografia].forEach(([pat, rep]) => {
+  [...saludos, ...filler, ...verbose, ...referencial, ...multiTask, ...redundant, ...ortografia].forEach(([pat, rep]) => {
     r = r.replace(pat, rep);
   });
 
