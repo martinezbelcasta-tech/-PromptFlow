@@ -302,9 +302,22 @@ Ejemplo: 'Me gustaría que por favor pudieras ayudarme a crear una funcion que p
 
       <!-- DERECHA: OUTPUT -->
       <div>
-        <div class="col-label">
-          <div class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa88;"></div>
-          <span style="color:#a78bfa;">PROMPT OPTIMIZADO</span>
+        <div class="col-label" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa88;"></div>
+            <span style="color:#a78bfa;">PROMPT OPTIMIZADO</span>
+          </div>
+          <!-- TOGGLE TEXTO / JSON -->
+          <div id="format-toggle" style="display:flex;background:#ffffff08;border:1px solid #ffffff12;border-radius:8px;padding:3px;gap:2px;">
+            <button onclick="setFormat('texto')" id="btn-texto"
+              style="padding:3px 12px;border-radius:5px;border:none;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;">
+              TEXTO
+            </button>
+            <button onclick="setFormat('json')" id="btn-json"
+              style="padding:3px 12px;border-radius:5px;border:none;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;transition:all .2s;background:transparent;color:#4b5563;">
+              JSON
+            </button>
+          </div>
         </div>
         <div class="output-box empty" id="output">El resultado aparecerá aquí...</div>
         <div class="stats-row">
@@ -537,8 +550,9 @@ function runCompress() {
   if (!input) { showToast('Escribí algo primero ✦'); return; }
 
   const result = compress(input);
-  outputEl.textContent = result;
+  lastCompressed = result;
   outputEl.classList.remove('empty');
+  renderOutput(result);
 
   // Stats
   const inW  = countWords(input),   inC  = input.length;
@@ -571,7 +585,7 @@ function runCompress() {
 
 // ── COPIAR ──
 function copyOutput() {
-  const text = outputEl.textContent;
+  const text = currentFormat === 'json' ? toJSON(lastCompressed) : lastCompressed;
   if (!text || outputEl.classList.contains('empty')) return;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('btn-copy');
@@ -580,6 +594,46 @@ function copyOutput() {
     showToast('¡Copiado al portapapeles!');
     setTimeout(() => { btn.textContent = '⎘ COPIAR'; btn.classList.remove('copied'); }, 2000);
   });
+}
+
+// ── FORMATO TOGGLE ──
+let currentFormat = 'texto';
+let lastCompressed = '';
+
+function setFormat(fmt) {
+  currentFormat = fmt;
+  const btnTexto = document.getElementById('btn-texto');
+  const btnJson  = document.getElementById('btn-json');
+  const active   = 'background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;';
+  const inactive = 'background:transparent;color:#4b5563;';
+  btnTexto.style.cssText += fmt === 'texto' ? active : inactive;
+  btnJson.style.cssText  += fmt === 'json'  ? active : inactive;
+  if (lastCompressed) renderOutput(lastCompressed);
+}
+
+function toJSON(text) {
+  const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  if (sentences.length <= 1) {
+    return JSON.stringify({ prompt: text }, null, 2);
+  }
+  const [instruccion, ...tareas] = sentences;
+  const obj = tareas.length
+    ? { instruccion, tareas }
+    : { prompt: instruccion };
+  return JSON.stringify(obj, null, 2);
+}
+
+function renderOutput(compressed) {
+  const el = document.getElementById('output');
+  if (currentFormat === 'json') {
+    el.textContent = toJSON(compressed);
+    el.style.fontFamily = "'JetBrains Mono', monospace";
+    el.style.fontSize   = '12px';
+  } else {
+    el.textContent = compressed;
+    el.style.fontFamily = "'Inter', sans-serif";
+    el.style.fontSize   = '13.5px';
+  }
 }
 
 // ── TOAST ──
