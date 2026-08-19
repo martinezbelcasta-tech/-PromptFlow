@@ -320,6 +320,7 @@ Ejemplo: 'Me gustaría que por favor pudieras ayudarme a crear una funcion que p
           </div>
         </div>
         <div class="output-box empty" id="output">El resultado aparecerá aquí...</div>
+        <div id="source-tag" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;margin-top:8px;letter-spacing:0.5px;"></div>
         <div class="stats-row">
           <div class="stat purple">
             <div class="stat-val" id="out-words">0</div>
@@ -340,7 +341,12 @@ Ejemplo: 'Me gustaría que por favor pudieras ayudarme a crear una funcion que p
     <!-- ACCIONES -->
     <div class="actions">
       <button class="btn-primary" onclick="runCompress()">
-        <span>⚡</span><span>Comprimir y Corregir</span>
+        <span style="display:inline-flex;align-items:center;line-height:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kimi">
+            <text x="1" y="19" font-family="Arial, sans-serif" font-weight="800" font-size="22" fill="#ffffff">K</text>
+            <circle cx="19.5" cy="5" r="3.2" fill="#2563eb"/>
+          </svg>
+        </span><span>Optimizar con Kimi K3 fast</span>
       </button>
       <div class="right-actions">
         <div class="savings-badge" id="savings-badge"></div>
@@ -358,6 +364,39 @@ Ejemplo: 'Me gustaría que por favor pudieras ayudarme a crear una funcion que p
         <div class="rule on">ortografía</div>
         <div class="rule on">espacios extra</div>
       </div>
+    </div>
+  </div>
+
+  <!-- PANEL PREGUNTAS -->
+  <div class="panel" style="margin-top:22px;">
+    <div class="columns" style="margin-bottom:16px;">
+      <!-- IZQUIERDA: PREGUNTA -->
+      <div>
+        <div class="col-label">
+          <div class="dot" style="background:#34d399;box-shadow:0 0 8px #34d39988;"></div>
+          <span style="color:#34d399;">HACÉ TU PREGUNTA</span>
+        </div>
+        <textarea id="ask-input" style="min-height:130px;" placeholder="Escribí tu pregunta y la IA te responde...
+
+Ej: '¿Cómo escribo un buen prompt?'"></textarea>
+      </div>
+
+      <!-- DERECHA: RESPUESTA -->
+      <div>
+        <div class="col-label">
+          <div class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa88;"></div>
+          <span style="color:#a78bfa;">RESPUESTA DE LA IA</span>
+        </div>
+        <div class="output-box empty" id="ask-output" style="min-height:130px;max-height:200px;overflow-y:auto;">La respuesta aparecerá aquí...</div>
+        <div id="ask-source-tag" style="display:none;font-family:'JetBrains Mono',monospace;font-size:10px;margin-top:8px;letter-spacing:0.5px;color:#c4b5fd;">✨ Respuesta generada por IA Kimi K3</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="ask-btn" onclick="runAsk()">
+        <span>💬</span><span>Preguntar</span>
+      </button>
+      <button class="btn-copy" id="ask-copy" onclick="copyAsk()">⎘ COPIAR</button>
     </div>
   </div>
 
@@ -544,12 +583,56 @@ function compress(text) {
   return r;
 }
 
+// ── BACKEND IA (Supabase Edge Function → Gemini) ──
+const FN_URL = 'https://fpjbaufhwstvntatslar.supabase.co/functions/v1/optimize';
+const FN_KEY = 'sb_publishable_Aty9V2PtcFHlEJrTsofUAQ_Bwbpyc7Z'; // pública, segura en el frontend
+
+async function optimizeWithAI(text) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const r = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': FN_KEY, 'Authorization': `Bearer ${FN_KEY}` },
+      body: JSON.stringify({ text }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) throw new Error('fn ' + r.status);
+    const data = await r.json();
+    if (!data.optimized) throw new Error('sin resultado');
+    return data.optimized;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setBusy(busy) {
+  const btn = document.querySelector('.btn-primary');
+  btn.disabled = busy;
+  btn.style.opacity = busy ? '0.6' : '';
+  btn.style.pointerEvents = busy ? 'none' : '';
+  btn.querySelector('span:last-child').textContent = busy ? 'Optimizando…' : 'Optimizar con Kimi K3 fast';
+}
+
 // ── EJECUTAR COMPRESIÓN ──
-function runCompress() {
+async function runCompress() {
   const input = inputEl.value.trim();
   if (!input) { showToast('Escribí algo primero ✦'); return; }
 
-  const result = compress(input);
+  setBusy(true);
+  let result, source;
+  try {
+    result = await optimizeWithAI(input);
+    source = 'IA';
+  } catch (e) {
+    result = compress(input);          // fallback: motor de reglas local
+    source = 'reglas';
+  }
+  setBusy(false);
+  showResult(input, result, source);
+}
+
+function showResult(input, result, source) {
   lastCompressed = result;
   outputEl.classList.remove('empty');
   renderOutput(result);
@@ -580,7 +663,19 @@ function runCompress() {
   copyEl.classList.remove('copied');
   copyEl.textContent = '⎘ COPIAR';
 
-  showToast(`⚡ Comprimido — ahorro del ${pct}%`);
+  // Indicador de fuente
+  const tagEl = document.getElementById('source-tag');
+  if (source === 'IA') {
+    tagEl.textContent = '✨ Respuesta generada por IA Kimi K3';
+    tagEl.style.color = '#c4b5fd';
+  } else {
+    tagEl.textContent = '⚙ Generado con reglas locales';
+    tagEl.style.color = '#6b7280';
+  }
+  tagEl.style.display = 'block';
+
+  const tag = source === 'IA' ? '✨ Optimizado con IA' : '⚙ Optimizado con reglas';
+  showToast(`${tag} — ahorro del ${pct}%`);
 }
 
 // ── COPIAR ──
@@ -589,6 +684,72 @@ function copyOutput() {
   if (!text || outputEl.classList.contains('empty')) return;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ COPIADO';
+    btn.classList.add('copied');
+    showToast('¡Copiado al portapapeles!');
+    setTimeout(() => { btn.textContent = '⎘ COPIAR'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── HACÉ TU PREGUNTA (Q&A con IA) ──
+let lastAnswer = '';
+
+async function runAsk() {
+  const q = document.getElementById('ask-input').value.trim();
+  if (!q) { showToast('Escribí una pregunta primero ✦'); return; }
+
+  const btn = document.getElementById('ask-btn');
+  const out = document.getElementById('ask-output');
+  btn.disabled = true; btn.style.opacity = '0.6'; btn.style.pointerEvents = 'none';
+  btn.querySelector('span:last-child').textContent = 'Pensando…';
+  out.classList.remove('empty');
+  out.textContent = 'Pensando…';
+  document.getElementById('ask-copy').classList.remove('visible');
+  document.getElementById('ask-source-tag').style.display = 'none';
+  lastAnswer = '';
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const r = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': FN_KEY },
+      body: JSON.stringify({ text: q, mode: 'ask' }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok || !r.body) throw new Error('fn ' + r.status);
+
+    // Lee el stream y muestra la respuesta apareciendo en vivo
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      full += decoder.decode(value, { stream: true });
+      out.textContent = full;
+    }
+    lastAnswer = full.trim();
+    if (!lastAnswer) throw new Error('respuesta vacía');
+    out.textContent = lastAnswer;
+    document.getElementById('ask-copy').classList.add('visible');
+    document.getElementById('ask-source-tag').style.display = 'block';
+    showToast('✨ Respuesta lista');
+  } catch (e) {
+    lastAnswer = '';
+    out.textContent = 'No pude obtener respuesta ahora. Probá de nuevo en unos segundos.';
+    showToast('Error al consultar la IA');
+  } finally {
+    clearTimeout(timer);
+    btn.disabled = false; btn.style.opacity = ''; btn.style.pointerEvents = '';
+    btn.querySelector('span:last-child').textContent = 'Preguntar';
+  }
+}
+
+function copyAsk() {
+  if (!lastAnswer) return;
+  navigator.clipboard.writeText(lastAnswer).then(() => {
+    const btn = document.getElementById('ask-copy');
     btn.textContent = '✓ COPIADO';
     btn.classList.add('copied');
     showToast('¡Copiado al portapapeles!');
@@ -647,7 +808,10 @@ function showToast(msg) {
 
 // Enter para comprimir (Ctrl+Enter)
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCompress();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (document.activeElement && document.activeElement.id === 'ask-input') runAsk();
+    else runCompress();
+  }
 });
 </script>
 </body>
